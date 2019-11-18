@@ -1,0 +1,600 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>My map</title>
+    <h1> CPSC 583: Map Visualization</h1>
+    <h2>Group 10</h2>
+<script type="text/javascript" src="https://d3js.org/d3.v5.min.js"></script>
+    <script src="http://d3js.org/queue.v1.min.js"></script>
+<link rel="stylesheet" type="text/css" href="map.css">
+<style>
+    text{
+        font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+        font-weight: 300;
+        font-size: 40px;
+        fill: yellow;
+        stroke: black;
+        stroke-width: 1;
+    }
+
+    .text1{
+        font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+        font-weight: bolder;
+        font-size: 9px;
+        fill: yellow;
+        stroke: black;
+        stroke-width: 0;
+    }
+
+    .text2{
+        font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+        font-weight: bolder;
+        font-size: 12px;
+        fill: yellow;
+        stroke: black;
+        stroke-width: 0.3;
+    }
+
+    string{
+        font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+        font-weight: 300;
+        font-size: 40px;
+        fill: yellow;
+        stroke: black;
+        stroke-width: 1;
+    }
+
+    body {
+        text-align: center;
+    }
+
+    #button0 {
+        position: fixed;
+        bottom: 250px;
+        right: 1900px;
+    }
+
+    #button1 {
+        position: fixed;
+        bottom: 250px;
+        right: 1776px;
+    }
+
+    #button2 {
+        position: fixed;
+        bottom: 250px;
+        right: 1603px;
+    }
+
+    #button3 {
+        position: fixed;
+        bottom: 210px;
+        right: 1900px;
+    }
+
+    #button4 {
+        position: fixed;
+        bottom: 210px;
+        right: 1767px;
+    }
+
+    #button5 {
+        position: fixed;
+        bottom: 170px;
+        right: 1945px;
+    }
+
+
+</style>
+</head>
+<body>
+
+<!--<form name="myForm" action="/action_page.php" onsubmit="return validateForm()" method="post">-->
+<!--    Name: <input type="text" name="fname">-->
+<!--    <input type="submit" value="Submit">-->
+<!--</form>-->
+
+
+    <div id="container" class="svg-container"></div>
+	<script type="text/javascript">
+    var w = 1400;
+    var h = 470;
+    var svg = d3.select("div#container").append("svg").attr("preserveAspectRatio", "xMinYMin meet").style("background-color","#182aa5")
+    .attr("viewBox", "0 0 " + w + " " + h)
+    .classed("svg-content", true);
+
+    var projection = d3.geoMercator().translate([w/2, h/2]).scale(110).center([0,40]);
+    var path = d3.geoPath().projection(projection);
+    var g = svg.append('g');
+    var centered;
+
+    var bigText = g.append('text')
+        .classed('big-text', true)
+        .attr('x', 20)
+        .attr('y', 50);
+    var bigText1 = g.append('text')
+        .classed('big-text', true)
+        .attr('x', 20)
+        .attr('y', 100);
+
+    var mapLayer = g.append('g')
+        .classed('map-layer', true);
+
+    var colours =  ["#efed37", "#ff8e0f", "#f2080d", "#ef3ccf",
+                    "#a02006", "#54f04c"];
+    var buttonNames = ["Developed", "Developing", "Underdeveloped", "Happiness","Living Index","Reset"];
+    var legend, hoverData, legendTitle;
+
+    var colorScale = d3.scaleThreshold()
+        .domain([100000, 1000000, 10000000, 30000000, 100000000, 500000000])
+        .range(d3.schemeGreens[7]);
+
+    var tooltip = d3.select("body").append("div")
+        .attr("class", "tooltip")
+        .style("opacity", 0);
+
+    var data = d3.map();
+
+    var clicked1, clicked2, clicked3, clicked4, clicked5;
+    clicked1 = clicked2 = clicked3 = clicked4 = clicked5 = false;
+
+    const colorHappy = d3.scaleThreshold()
+        .domain([3.4,3.5,3.6,3.7
+                ,3.8,3.9,4.0,4.1
+                ,4.2,4.3,4.4,4.5
+                ,4.6,4.7,4.8,4.9
+                ,5.0,5.1,5.2,5.3
+                ,5.4,5.5,5.6,5.7
+                ,5.8,5.9,6.0,6.1
+                ,6.2,6.3,6.4,6.5
+                ,6.6,6.7,6.8,6.9
+                ,7.0,7.1,7.2,7.3
+                ,7.4,7.5,7.6]) //15
+        .range(['#ffffe0', '#fff9db', '#fff3d7', '#ffecd2',
+                '#ffe6cd', '#ffe0c9', '#ffdac4', '#ffd3bf',
+                '#ffcdba', '#ffc6b6', '#ffc0b1', '#ffb9ac',
+                '#ffb3a7', '#ffaca3', '#ffa59e', '#ff9e99',
+                '#fe9794', '#fd9190', '#fb8a8c', '#f98488',
+                '#f67e83', '#f4777f', '#f1717b', '#ee6b77',
+                '#eb6574', '#e85e70', '#e5586c', '#e15268',
+                '#dd4c65', '#da4661', '#d5405e', '#d13a5a',
+                '#cd3357', '#c82d54', '#c32750', '#be214d',
+                '#b81b4a', '#b31547', '#ad0e44', '#a70842',
+                '#a1043f', '#9a013c', '#93003a']);
+
+    const colorLiving = d3.scaleThreshold()
+        .domain([30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100, 105, 110]) //17
+        .range(['#ffef6d', '#f9e166', '#f4d45e', '#efc757',
+                '#e9ba50', '#e3ad48', '#dda041', '#d7933a',
+                '#d18633', '#ca792d', '#c46b26', '#bd5e1f',
+                '#b65019', '#af4212', '#a8320c', '#a02006',
+                '#980001']);
+
+
+  // load data  
+var worldmap = d3.json("countries.geojson");
+var countries = d3.csv("Main+ (Multiple Connections).csv");
+
+        Promise.all([worldmap, countries]).then(function (values) {
+
+            var numButtons = 6;
+            var btn = [];
+            for(i=0;i<numButtons;i++)
+                btn[i] = document.createElement("BUTTON");
+
+            for(i=0;i<numButtons;i++)
+                btn[i].setAttribute("id", "button"+i);
+
+            for(i=0;i<numButtons;i++)
+                btn[i].innerHTML = buttonNames[i];
+
+            for(i=0;i<numButtons;i++)
+                document.body.appendChild(btn[i]);
+
+            for(i=0;i<numButtons;i++)
+                 btn[i].style.position = "fixed";
+
+            for(i=0;i<numButtons;i++)
+                btn[i].style.fontSize = "20px";
+
+            for(i=0;i<numButtons;i++)
+                btn[i].style.fontWeight = 'Bold';
+
+            for(i=0;i<numButtons;i++)
+                btn[i].style.float = "left";
+
+            for(i=0;i<numButtons;i++)
+                 btn[i].style.margin = "15px";
+
+            for(i=0;i<numButtons;i++)
+                btn[i].style.backgroundColor = colours[i];
+
+            function countryName(d) {
+                return d && d.properties ? d.properties.name : null;
+            }
+
+            function continentName(d) {
+                return d && d.properties ? d.properties.continent : null;
+            }
+
+            function developmentStatus(d) {
+                return d && d.properties ? d.properties.developStatus : null;
+            }
+
+
+            let mouseOver = function (d) {
+                d3.selectAll(".Country")
+                    .transition()
+                    .duration(200)
+                    .style("opacity", 10)
+                d3.select(this)
+                    .transition()
+                    .duration(200)
+                    // .style("fill", "#fffdf8")
+                    .style("opacity", 1)
+                    .style("stroke", "black")
+
+                addText(countryName(d), continentName(d));
+
+                if (d.properties.livingIndex !== "") {
+                    tooltip.transition()
+                        .duration(200)
+                        .style("opacity", .90);
+
+                    tooltip.html("Cost Living Index: " + d.properties.livingIndex + "\n" + "Happiness Score: " + d.properties.happinessRank)
+                        .style("left", (d3.event.pageX) + "px")
+                        .style("font-size", "15px")
+                        .style("font-weight", "bold")
+                        .style("top", (d3.event.pageY - 28) + "px");
+                }
+            }
+
+
+
+            //
+            // function clicked(d) {
+            //     var x, y, k;
+            //
+            //     // Compute centroid of the selected path
+            //     if (d && centered !== d) {
+            //         var centroid = path.centroid(d);
+            //         x = centroid[0];
+            //         y = centroid[1];
+            //         k = 4;
+            //         centered = d;
+            //     } else {
+            //         x = width / 2;
+            //         y = height / 2;
+            //         k = 1;
+            //         centered = null;
+            //     }
+            //
+            //     // Highlight the clicked province
+            //     mapLayer.selectAll('path')
+            //         .style('fill', function(d){return centered && d===centered ? '#D5708B' : fillFn(d);});
+            //
+            //     // Zoom
+            //     g.transition()
+            //         .duration(750)
+            //         .attr('transform', 'translate(' + w / 2 + ',' + h / 2 + ')scale(' + k + ')translate(' + -x + ',' + -y + ')');
+            // }
+
+
+            let mouseLeave = function (d) {
+                d3.selectAll(".Country")
+                    .transition()
+                    .duration(200)
+                    .style("opacity", 0.7)
+                d3.select(this)
+                    .transition()
+                    .duration(200)
+                    .style("stroke", "transparent")
+                    .style("opacity", 0.7)
+
+                //Clear province name
+               bigText.text('');
+               bigText1.text('');
+//remove tooltip
+                tooltip.transition()
+                    .duration(1000)
+                    .style("opacity", 0);
+            }
+
+            // draw map
+            svg.selectAll("path")
+                .data(values[0].features)
+                .enter()
+                .append("path")
+                .attr("class", "continent")
+                .attr("d", path)
+                .attr("fill", function (d) {
+                    if (developmentStatus(d) == "Developed") {
+                        d3.select(this).style('fill', colours[0]);
+                        d3.select(this).classed("Developed", true)
+                    }
+                    if (developmentStatus(d) == "Developing") {
+                        d3.select(this).style('fill', colours[1]);
+                        d3.select(this).classed("Developing", true)
+                    }
+                    if (developmentStatus(d) == "Underdeveloped") {
+                        d3.select(this).style('fill', colours[2]);
+                        d3.select(this).classed("Underdeveloped", true)
+                    }
+
+                })
+                .on("mouseover", mouseOver)
+                .on("mouseleave", mouseLeave)
+               // .on("click", clicked)
+                .style("stroke", "transparent")
+                .style("opacity", 0.7)
+
+            // document.getElementById("4").addEventListener("click", function(d){
+            //     d3.selectAll("path").style('fill', '#54f04c');
+            // })
+
+            document.getElementById("button0").addEventListener("click", function (d) {
+                if (!clicked1) {
+                    clicked1 = true;
+                    d3.selectAll(".Developed").style('fill', colours[5]);
+                } else {
+                    clicked1 = false;
+                    d3.selectAll(".Developed").style('fill', colours[0]);
+                }
+            })
+
+
+            document.getElementById("button1").addEventListener("click", function (d) {
+                if (!clicked2) {
+                    clicked2 = true;
+                    d3.selectAll(".Developing").style('fill', colours[5]);
+                } else {
+                    clicked2 = false;
+                    d3.selectAll(".Developing").style('fill', colours[1]);
+                }
+            })
+
+
+            document.getElementById("button2").addEventListener("click", function (d) {
+                if (!clicked3) {
+                    clicked3 = true;
+                    d3.selectAll(".Underdeveloped").style('fill', colours[5]);
+                } else {
+                    clicked3 = false;
+                    d3.selectAll(".Underdeveloped").style('fill', colours[2]);
+                }
+            })
+
+
+            document.getElementById("button3").addEventListener("click", function (d) {
+                if(!clicked4) {
+                    clicked4 = true;
+                    d3.selectAll("path").style('fill', function (d) {
+                        return colorHappy(d.properties.happinessRank);
+                    });
+                }
+                else{
+                    clicked4 = false;
+                        d3.selectAll("path").style('fill', colours[5]);
+                }
+            })
+
+
+            document.getElementById("button4").addEventListener("click", function (d) {
+                if(!clicked5) {
+                    clicked5 = true;
+                    d3.selectAll("path").style('fill', function (d) {
+                        return colorLiving(d.properties.livingIndex);
+                    });
+                }
+                else{
+                    clicked5 = false;
+                    d3.selectAll("path").style('fill', colours[5]);
+                }
+            })
+
+
+            document.getElementById("button5").addEventListener("click", function (d) {
+                d3.selectAll("path").style('fill', colours[5]);
+
+            })
+        })
+
+
+    // function validateForm() {
+    //     var x = document.forms["myForm"]["fname"].value;
+    //     if(x === d.properties.name) {
+    //         d3.selectAll(".Country")
+    //             .transition()
+    //             .duration(200)
+    //             .style("opacity", 10)
+    //         d3.select(x)
+    //             .transition()
+    //             .duration(200)
+    //             .style("opacity", 1)
+    //             .style("stroke", "black")
+    //     }
+    //
+    //     if (x == "") {
+    //         alert("Country must be filled out");
+    //         return false;
+    //     }
+    // }
+
+        function addText(text, text1) {
+            bigText
+                .style('font-family', "Arial")
+                .text(text);
+
+            bigText1
+                .style('font-family', "Arial")
+                .text(text1);
+        }
+
+
+    // draw legend
+    var legend = svg.selectAll(".legend")
+        .data(colorHappy.domain())
+        .enter().append("g")
+        .attr("class", "legend")
+        .attr("transform", function(d, i) { return "translate(-200," + i * 9 + ")"; });
+
+    // draw legend colored rectangles
+    legend.append("rect")
+        .attr("x", w - 18)
+        .attr("y", 20)
+        .attr("width", 8)
+        .attr("height", 8)
+        .style("fill", colorHappy);
+
+    // draw legend text
+    legend.append("text").attr("class", "text1")
+        .attr("x", w - 24)
+        .attr("y", 25)
+        .attr("dy", ".35em")
+        .style("text-anchor", "end")
+        .text(function(d) { return d;})
+
+    // draw legend
+    var legend1 = svg.selectAll(".legend1")
+        .data(colorLiving.domain())
+        .enter().append("g")
+        .attr("class", "legend1")
+        .attr("transform", function(d, i) { return "translate(-100," + i * 9 + ")"; });
+
+    // draw legend colored rectangles
+    legend1.append("rect")
+        .attr("x", w - 18)
+        .attr("y", 20)
+        .attr("width", 8)
+        .attr("height", 8)
+        .style("fill", colorLiving);
+
+    // draw legend text
+    legend1.append("text").attr("class", "text1")
+        .attr("x", w - 24)
+        .attr("y", 25)
+        .attr("dy", ".35em")
+        .style("text-anchor", "end")
+        .text(function(d) { return d;})
+
+    var legendTitle = g.append("text").attr("class", "text2")
+        .attr("x", w - 150)
+        .attr("y", 10)
+        .attr("dy", ".35em")
+        .style("text-anchor", "start")
+        .text("Living Index")
+
+    var legendTitle1 = g.append("text").attr("class", "text2")
+        .attr("x", w - 270)
+        .attr("y", 10)
+        .attr("dy", ".35em")
+        .style("text-anchor", "start")
+        .text("Happiness Score")
+
+
+
+
+// for legend
+    //
+    // var formatPercent = d3.format(".0%"),
+    //     formatNumber = d3.format(".0f");
+    //
+    // var x = d3.scaleLinear()
+    //     .domain([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
+    //     .range([0, 20]);
+    //
+    // var xAxis = d3.axisBottom(x)
+    //     .tickSize(13)
+    //     .tickValues(colorHappy.domain())
+    //     .tickFormat(function(d) { return d === 0.5 ? formatPercent(d) : formatNumber(100 * d); });
+    //
+    // var g = d3.select("g").call(xAxis);
+    //
+    // g.select(".domain")
+    //     .remove();
+    //
+    // g.selectAll("rect")
+    //     .data(colorHappy.range().map(function(color) {
+    //         var d = colorHappy.invertExtent(color);
+    //         if (d[0] == null) d[0] = x.domain()[0];
+    //         if (d[1] == null) d[1] = x.domain()[1];
+    //         return d;
+    //     }))
+    //     .enter().insert("rect", ".tick")
+    //     .attr("height", 4)
+    //     .attr("x", function(d) { return x(d[0]); })
+    //     .attr("y", 200)
+    //     .attr("width", function(d) { return x(d[1]) - x(d[0]); })
+    //     .attr("fill", function(d) { return colorHappy(d[0]); });
+    //
+    // g.append('text')
+    //     .attr("class", "text1")
+    //     .attr("fill", "#000")
+    //     .attr("font-weight", "bold")
+    //     .attr("text-anchor", "start")
+    //     .attr("y", 200)
+    //     .text("Country Happiness");
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+        //
+        //
+        //
+        // TO FIX LEGEND
+        //
+        //
+        //
+        ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+        // // Draw legend
+        // legend = svg.selectAll(".legend")
+        //     .data(colours)
+        //     .enter().append("g")
+        //     .attr("class", "legend")
+        //     .attr("transform", function (d, i) {
+        //         return "translate(200," + i * 35 + ")";
+        //     })
+        //
+        // //-------------------------------------------------------------------------------------------------------
+        //
+        // //legend title
+        // legendTitle = svg.select(".legend")
+        //     .append("string")
+        //     .attr("x", w - 1600)
+        //     .attr("y", 400)
+        //     .attr("font-size", "20px")
+        //     .attr("font-weight", "bold")
+        //     .text("Development Status");
+        //
+        //
+        // //create the small coloured rectangles for the legend
+        // legend.append("rect")
+        //     .attr("x", w - 1500)
+        //     .attr("y", 300)
+        //     .attr("width", 5)
+        //     .attr("height", 5)
+        //     .style("fill", function (d, i) {
+        //         return colours.slice().reverse()[i];
+        //     });
+        //
+        //
+        // // create text for legend rectangle
+        // legend.append("string")
+        //     .attr("x", w - 1600)
+        //     .attr("y", 300)
+        //     .attr("dy", ".35em")
+        //     .attr("font-size", "10px")
+        //     .style("text-anchor", "start")
+        //     .text(function (d, i) {
+        //         if (i == 0) return "Developed";
+        //         if (i == 1) return "Developing";
+        //         if (i == 2) return "Underdeveloped";
+        //         if (i == 3) return "NULL";
+        //     });
+
+
+
+
+    </script>
+</body>
+</html>
